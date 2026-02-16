@@ -1,5 +1,6 @@
 import eventlet
-eventlet.monkey_patch()
+eventlet.monkey_patch(all=True)
+
 
 import redis
 from dotenv import load_dotenv
@@ -42,8 +43,10 @@ from flask_limiter.util import get_remote_address
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=["200 per minute"]
+    default_limits=["200 per minute"],
+    storage_uri=os.environ.get("REDIS_URL")
 )
+
 
 
 @app.before_request
