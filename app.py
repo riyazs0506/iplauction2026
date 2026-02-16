@@ -536,18 +536,22 @@ def sell():
         price = int(request.form["price"])
         category = request.form["category"]
 
+        # 🔹 Get Player
         cursor.execute("SELECT * FROM players WHERE id=%s", (pid,))
         player = cursor.fetchone()
 
         if not player:
             return redirect(f"/auction?category={category}")
 
+        # 🔹 Check Constraints
         errors = check_team_constraints(tid, player, price)
         if errors:
             return redirect(f"/auction?category={category}")
 
+        # 🔹 Calculate Strategy
         points = calculate_strategy(player, price)
 
+        # 🔹 Update Player
         cursor.execute("""
             UPDATE players
             SET sold_price=%s,
@@ -557,6 +561,7 @@ def sell():
             WHERE id=%s
         """, (price, tid, points, pid))
 
+        # 🔹 Update Team
         cursor.execute("""
             UPDATE teams
             SET spent=spent+%s,
@@ -566,32 +571,39 @@ def sell():
 
         db.commit()
 
+        # 🔹 Get Team Name
         cursor.execute("SELECT name FROM teams WHERE id=%s", (tid,))
         team_data = cursor.fetchone()
+
+        # 🔥 Prepare Broadcast Payload (SAFE)
+        sold_payload = {
+            "id": player["id"],
+            "player_name": player["name"],
+            "sold_price": price,
+            "team_name": team_data["name"] if team_data else "Unknown",
+            "status": "SOLD"
+        }
 
     finally:
         cursor.close()
         db.close()
 
-    # 🔥 Broadcast outside DB block
-    sold_payload = {
-        "id": player["id"],
-        "player_name": player["name"],
-        "sold_price": price,
-        "team_name": team_data["name"],
-        "status": "SOLD"
-    }
-
+    # 🔥 Broadcast AFTER DB closed
     socketio.emit("auction_result", sold_payload)
 
+    # 🔥 Clear Cache
     cache_delete("result_page")
     cache_delete("team_balance")
     cache_delete(f"auction_{category}")
 
+    # ⏳ Show SOLD animation delay
     socketio.sleep(2)
+
+    # 🔥 Send next player
     send_next_player(category)
 
     return redirect(f"/auction?category={category}")
+
 
 # ================= UNSOLD PLAYER =================
 @app.route("/unsold", methods=["POST"])
