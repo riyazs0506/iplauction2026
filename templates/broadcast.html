@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>IPL 2026 LIVE AUCTION</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+<style>
+
+body{
+    margin:0;
+    font-family:'Orbitron',sans-serif;
+    background:radial-gradient(circle at center,#0f2027,#1b263b,#000);
+    color:white;
+    overflow:hidden;
+}
+
+/* HEADER */
+.header-bar{
+    background:linear-gradient(90deg,#ff512f,#dd2476);
+    padding:15px;
+    text-align:center;
+    font-size:28px;
+    font-weight:bold;
+}
+
+/* WAITING */
+.waiting-screen{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:75vh;
+    font-size:42px;
+    animation:blink 1.5s infinite;
+}
+@keyframes blink{
+    0%{opacity:0.4;}
+    50%{opacity:1;}
+    100%{opacity:0.4;}
+}
+
+/* MAIN */
+.broadcast-wrapper{
+    display:flex;
+    height:75vh;
+    display:none;
+}
+
+/* LEFT */
+.left-section{
+    width:55%;
+    padding:50px;
+    background:#111;
+}
+
+.player-name{
+    font-size:36px;
+    color:#FFD700;
+}
+
+.player-info{
+    color:#ccc;
+    margin-bottom:25px;
+}
+
+.section-title{
+    color:#00AEEF;
+    margin-top:20px;
+    margin-bottom:10px;
+}
+
+.stat-box{
+    display:flex;
+    justify-content:space-between;
+    padding:14px;
+    margin-bottom:10px;
+    background:#243447;
+    border-radius:10px;
+}
+
+/* RIGHT */
+.right-section{
+    width:45%;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+.player-img{
+    width:400px;
+    height:400px;
+    border-radius:50%;
+    border:12px solid gold;
+    object-fit:cover;
+    box-shadow:0 0 100px gold;
+}
+
+/* RESULT OVERLAY */
+.result-overlay{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.96);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    gap:20px;
+    display:none;
+    z-index:999;
+}
+
+.overlay-player-img{
+    width:280px;
+    height:280px;
+    border-radius:50%;
+    border:10px solid gold;
+    object-fit:cover;
+    box-shadow:0 0 80px gold;
+}
+
+.stamp{
+    font-size:120px;
+    font-weight:bold;
+    padding:30px 100px;
+    border:15px solid white;
+    transform:rotate(-15deg);
+}
+
+.sold-stamp{
+    border-color:#00ff88;
+    color:#00ff88;
+    text-shadow:0 0 60px #00ff88;
+}
+
+.unsold-stamp{
+    border-color:#ff4444;
+    color:#ff4444;
+    text-shadow:0 0 60px #ff4444;
+}
+
+.team-logo{
+    width:180px;
+}
+
+.price-text{
+    font-size:40px;
+    color:#FFD700;
+    font-weight:bold;
+}
+.rejected-stamp{
+    border-color:#ff9900;
+    color:#ff9900;
+    text-shadow:0 0 60px #ff9900;
+}
+
+/* TICKER */
+.ticker{
+    position:fixed;
+    bottom:0;
+    width:100%;
+    background:#000;
+    overflow:hidden;
+    padding:12px;
+}
+
+.ticker-content{
+    display:inline-block;
+    white-space:nowrap;
+    animation:scroll 20s linear infinite;
+    font-weight:bold;
+    color:#FFD700;
+}
+
+.ticker-content img{
+    height:30px;
+    vertical-align:middle;
+    margin:0 10px;
+}
+
+@keyframes scroll{
+    0%{transform:translateX(100%);}
+    100%{transform:translateX(-100%);}
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="header-bar">
+🏏 IPL 2026 LIVE AUCTION | Kongu Engineering College
+</div>
+
+<div id="waitingScreen" class="waiting-screen">
+    Waiting For Auction...
+</div>
+
+<div class="broadcast-wrapper" id="mainScreen">
+
+<div class="left-section">
+    <div class="player-name" id="playerName"></div>
+    <div class="player-info" id="playerInfo"></div>
+
+    <div class="section-title">PLAYER STATS</div>
+    <div id="statsContainer"></div>
+
+    <div class="section-title">RATINGS</div>
+    <div id="ratingContainer"></div>
+</div>
+
+<div class="right-section">
+    <img id="playerImage" class="player-img">
+</div>
+
+</div>
+
+<div class="result-overlay" id="resultOverlay">
+    <img id="overlayPlayerImage" class="overlay-player-img">
+    <div id="stampContainer"></div>
+    <img id="teamLogo" class="team-logo">
+    <div class="price-text" id="priceText"></div>
+</div>
+
+<div class="ticker">
+    <div class="ticker-content" id="bottomTicker">
+        Welcome to IPL Auction 2026
+    </div>
+</div>
+<script>
+
+var socket = io();
+let currentPlayerId = null;
+let soldPlayers = [];
+let teamBalances = [];
+let currentTickerMode = "SOLD"; // SOLD or BALANCE
+
+const hammerSound = new Audio("/static/sounds/hammer.mp3");
+
+/* ================= PLAYER UPDATE ================= */
+socket.on("player_update", function(player){
+
+    if(!player){
+        document.getElementById("waitingScreen").style.display="flex";
+        document.getElementById("mainScreen").style.display="none";
+        return;
+    }
+
+    document.getElementById("waitingScreen").style.display="none";
+    document.getElementById("mainScreen").style.display="flex";
+
+    currentPlayerId = player.id;
+
+    document.getElementById("playerImage").src =
+        `/static/players/${player.id}.jpg`;
+
+    document.getElementById("playerName").innerText = player.name;
+
+    document.getElementById("playerInfo").innerText =
+        player.category + " • " + player.role + " • " + player.nationality;
+
+    const stats = document.getElementById("statsContainer");
+    const rating = document.getElementById("ratingContainer");
+    stats.innerHTML = "";
+    rating.innerHTML = "";
+
+    if(player.category === "Bowler"){
+        stats.innerHTML += `
+        <div class="stat-box"><span>Matches</span><strong>${player.matches}</strong></div>
+        <div class="stat-box"><span>Wickets</span><strong>${player.wickets}</strong></div>
+        <div class="stat-box"><span>Economy</span><strong>${player.economy}</strong></div>
+        `;
+    }else{
+        stats.innerHTML += `
+        <div class="stat-box"><span>Matches</span><strong>${player.matches}</strong></div>
+        <div class="stat-box"><span>Runs</span><strong>${player.runs}</strong></div>
+        <div class="stat-box"><span>Strike Rate</span><strong>${player.strike_rate}</strong></div>
+        `;
+    }
+
+    rating.innerHTML = `
+        <div class="stat-box"><span>Form</span><strong>${player.form_rating}/10</strong></div>
+        <div class="stat-box"><span>Fitness</span><strong>${player.fitness_rating}/10</strong></div>
+        <div class="stat-box"><span>Consistency</span><strong>${player.consistency}/10</strong></div>
+    `;
+});
+
+
+/* ================= AUCTION RESULT ================= */
+socket.on("auction_result", function(data){
+
+    const overlay = document.getElementById("resultOverlay");
+    overlay.style.display="flex";
+
+    hammerSound.currentTime = 0;
+    hammerSound.play();
+
+    if(currentPlayerId){
+        document.getElementById("overlayPlayerImage").src =
+            `/static/players/${currentPlayerId}.jpg`;
+    }
+
+    const stamp = document.getElementById("stampContainer");
+    const teamLogo = document.getElementById("teamLogo");
+    const priceText = document.getElementById("priceText");
+
+    teamLogo.style.display="block";
+
+    if(data.status === "SOLD"){
+
+        stamp.innerHTML =
+            `<div class="stamp sold-stamp">SOLD</div>`;
+
+        teamLogo.src =
+            `/static/teams/${data.team_name}.png`;
+
+        priceText.innerText =
+            `₹${data.sold_price} CR • ${data.team_name}`;
+
+        // Add to sold list
+        soldPlayers.push({
+            player: data.player_name,
+            team: data.team_name,
+            price: data.sold_price
+        });
+
+        updateSoldTicker();
+    }
+
+    else if(data.status === "UNSOLD"){
+        stamp.innerHTML =
+            `<div class="stamp unsold-stamp">UNSOLD</div>`;
+        teamLogo.style.display="none";
+        priceText.innerText="";
+    }
+
+    else if(data.status === "REJECTED"){
+        stamp.innerHTML =
+            `<div class="stamp rejected-stamp">REJECTED</div>`;
+        teamLogo.style.display="none";
+        priceText.innerText="";
+    }
+
+    setTimeout(()=>{
+        overlay.style.display="none";
+    },4500);
+});
+
+
+/* ================= SOLD TICKER ================= */
+function updateSoldTicker(){
+
+    const ticker = document.getElementById("bottomTicker");
+
+    let html = "";
+
+    soldPlayers.forEach(p=>{
+        html += `
+        <img src="/static/teams/${p.team}.png">
+        ${p.player} → ${p.team} ₹${p.price} Cr 🔥
+        &nbsp;&nbsp; | &nbsp;&nbsp;
+        `;
+    });
+
+    ticker.innerHTML = html;
+}
+
+
+/* ================= TEAM BALANCE FETCH ================= */
+async function fetchTeamBalance(){
+
+    try{
+        const response = await fetch("/team-balance-data");
+        const data = await response.json();
+        teamBalances = data;
+    }catch(e){
+        console.log("Balance fetch error");
+    }
+}
+
+
+/* ================= BALANCE TICKER ================= */
+function updateBalanceTicker(){
+
+    const ticker = document.getElementById("bottomTicker");
+
+    let html = "BALANCE : &nbsp;&nbsp;";
+
+    teamBalances.forEach(t=>{
+        html += `
+        <img src="/static/teams/${t.name}.png">
+        ${t.name} → ₹${t.remaining} Cr
+        &nbsp;&nbsp; | &nbsp;&nbsp;
+        `;
+    });
+
+    ticker.innerHTML = html;
+}
+
+
+/* ================= AUTO SWITCH SYSTEM ================= */
+
+// Every 5 min → refresh SOLD display
+setInterval(()=>{
+    if(currentTickerMode === "SOLD"){
+        updateSoldTicker();
+    }
+}, 300000); // 5 minutes
+
+
+// Every 10 min → show balance for 30 sec
+setInterval(async ()=>{
+    currentTickerMode = "BALANCE";
+
+    await fetchTeamBalance();
+    updateBalanceTicker();
+
+    // After 30 sec return to SOLD
+    setTimeout(()=>{
+        currentTickerMode = "SOLD";
+        updateSoldTicker();
+    }, 30000);
+
+}, 600000); // 10 minutes
+
+</script>
