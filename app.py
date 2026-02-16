@@ -1,6 +1,3 @@
-import eventlet
-eventlet.monkey_patch(all=True)
-
 
 import redis
 from dotenv import load_dotenv
@@ -28,7 +25,7 @@ app.secret_key = "ipl_secure_login_2026"
 socketio = SocketIO(
     app,
     cors_allowed_origins=os.environ.get("SOCKET_CORS"),
-    async_mode="eventlet",
+    async_mode="gevent",
     message_queue=os.environ.get("REDIS_URL"),  # 🔥 required for production scaling
     ping_timeout=20,
     ping_interval=10

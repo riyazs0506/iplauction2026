@@ -1,13 +1,14 @@
 Flask
 flask-socketio
-eventlet
 gunicorn
 mysql-connector-python
 redis
 python-dotenv
 flask-limiter
+gevent
 greenlet
 
 
 
-# web: gunicorn app:app --worker-class eventlet -w 1 --timeout 120
+# web: gunicorn app:app --worker-class gevent -w 1 --timeout 120
+
