@@ -23,3 +23,4 @@ else:
         "connection_timeout": 10,
         "autocommit": True
     }
+
