@@ -975,6 +975,19 @@ def health():
 # ================= SOCKET CONNECT =================
 @socketio.on("connect")
 def handle_connect():
+    global current_player_id
+
+    if current_player_id:
+        db, cursor = get_cursor()
+        try:
+            cursor.execute("SELECT * FROM players WHERE id=%s", (current_player_id,))
+            player = cursor.fetchone()
+            if player:
+                socketio.emit("player_update", make_json_safe(player))
+        finally:
+            cursor.close()
+            db.close()
+
     return True
 
 # ================= RUN =================

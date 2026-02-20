@@ -235,7 +235,7 @@ body{
 
 <script>
 
-var socket = io({
+var socket = io("https://iplauction-aahu.onrender.com", {
     transports: ["websocket"],
     upgrade: false
 });
@@ -249,7 +249,7 @@ const hammerSound = new Audio("/static/sounds/hammer.mp3");
 /* ================= PLAYER UPDATE ================= */
 socket.on("player_update", function(player){
 
-    if(!player){
+    if(!player || Object.keys(player).length === 0){
         document.getElementById("waitingScreen").style.display="flex";
         document.getElementById("mainScreen").style.display="none";
         return;
