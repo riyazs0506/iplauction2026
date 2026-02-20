@@ -1,3 +1,5 @@
+from gevent import monkey
+monkey.patch_all()
 
 import redis
 from dotenv import load_dotenv
@@ -19,7 +21,7 @@ from datetime import datetime
 
 
 app = Flask(__name__)
-app.secret_key = "ipl_secure_login_2026"
+app.secret_key = os.environ.get("SECRET_KEY", "dev_key")
 
 
 socketio = SocketIO(
@@ -27,7 +29,6 @@ socketio = SocketIO(
     cors_allowed_origins="*",
     async_mode="gevent",
     message_queue=os.environ.get("REDIS_URL"),
-    manage_session=False,   # 🔥 IMPORTANT FIX
     ping_timeout=20,
     ping_interval=10
 )
@@ -182,7 +183,6 @@ def team_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-from functools import wraps
 
 def login_required(role=None):
     def wrapper(f):
@@ -595,10 +595,7 @@ def sell():
     cache_delete(f"auction_{category}")
 
     # ⏳ Show SOLD animation delay
-    socketio.sleep(2)
-
-    # 🔥 Send next player
-    send_next_player(category)
+    socketio.start_background_task(delay_next_player, category)
 
     return redirect(f"/auction?category={category}")
 
@@ -656,15 +653,12 @@ def unsold_player():
     cache_delete("team_balance")
     cache_delete(f"auction_{category}")
 
-    socketio.sleep(2)
-    send_next_player(category)
+    socketio.start_background_task(delay_next_player, category)
 
     return redirect(url_for("auction", category=category))
 
 # ================= SEND NEXT PLAYER =================
 def send_next_player(category):
-
-    global current_player_id
 
     db, cursor = get_cursor()
 
@@ -683,12 +677,16 @@ def send_next_player(category):
         db.close()
 
     if next_player:
-        current_player_id = next_player["id"]   # ✅ store globally
         safe_player = make_json_safe(next_player)
         socketio.emit("player_update", safe_player)
     else:
-        current_player_id = None
         socketio.emit("player_update", {})
+
+
+# ================= DELAY NEXT PLAYER =================
+def delay_next_player(category):
+    socketio.sleep(2)
+    send_next_player(category)
 
 @app.route("/update-sold-details", methods=["POST"])
 def update_sold_details():
@@ -976,27 +974,8 @@ def health():
 
 # ================= SOCKET CONNECT =================
 @socketio.on("connect")
-def handle_connect(auth):
-
-    print("Client connected")
-
-    global current_player_id
-
-    if not current_player_id:
-        return
-
-    db, cursor = get_cursor()
-
-    try:
-        cursor.execute("SELECT * FROM players WHERE id=%s", (current_player_id,))
-        player = cursor.fetchone()
-    finally:
-        cursor.close()
-        db.close()
-
-    if player:
-        safe_player = make_json_safe(player)
-        socketio.emit("player_update", safe_player)
+def handle_connect():
+    return True
 
 # ================= RUN =================
 if __name__ == "__main__":

@@ -235,7 +235,10 @@ body{
 
 <script>
 
-var socket = io();
+var socket = io({
+    transports: ["websocket"],
+    upgrade: false
+});
 let currentPlayerId = null;
 let soldPlayers = [];
 let teamBalances = [];
