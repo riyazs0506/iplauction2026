@@ -30,7 +30,9 @@ socketio = SocketIO(
     async_mode="gevent",
     message_queue=os.environ.get("REDIS_URL"),
     ping_timeout=20,
-    ping_interval=10
+    ping_interval=10,
+    logger=True,
+    engineio_logger=True
 )
 
 # ================= GLOBAL CURRENT PLAYER =================
