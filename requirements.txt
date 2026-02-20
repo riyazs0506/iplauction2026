@@ -1,14 +1,14 @@
-Flask
-flask-socketio
-gunicorn
-mysql-connector-python
-redis
-python-dotenv
-flask-limiter
-gevent
-greenlet
+Flask==2.3.3
+Flask-SocketIO==5.3.6
+python-socketio==5.11.2
+python-engineio==4.9.0
+gevent==23.9.1
+gunicorn==21.2.0
+redis==5.0.1
+Flask-Limiter==3.5.0
+mysql-connector-python==8.3.0
+python-dotenv==1.0.1
 
 
 
-# web: gunicorn app:app --worker-class gevent -w 1 --timeout 120
-
+# web: gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker app:app -w 1 --timeout 120

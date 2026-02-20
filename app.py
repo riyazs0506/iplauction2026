@@ -24,9 +24,10 @@ app.secret_key = "ipl_secure_login_2026"
 
 socketio = SocketIO(
     app,
-    cors_allowed_origins=os.environ.get("SOCKET_CORS"),
+    cors_allowed_origins="*",
     async_mode="gevent",
-    message_queue=os.environ.get("REDIS_URL"),  # 🔥 required for production scaling
+    message_queue=os.environ.get("REDIS_URL"),
+    manage_session=False,   # 🔥 IMPORTANT FIX
     ping_timeout=20,
     ping_interval=10
 )
@@ -663,6 +664,8 @@ def unsold_player():
 # ================= SEND NEXT PLAYER =================
 def send_next_player(category):
 
+    global current_player_id
+
     db, cursor = get_cursor()
 
     try:
@@ -680,9 +683,11 @@ def send_next_player(category):
         db.close()
 
     if next_player:
+        current_player_id = next_player["id"]   # ✅ store globally
         safe_player = make_json_safe(next_player)
         socketio.emit("player_update", safe_player)
     else:
+        current_player_id = None
         socketio.emit("player_update", {})
 
 @app.route("/update-sold-details", methods=["POST"])
@@ -971,8 +976,27 @@ def health():
 
 # ================= SOCKET CONNECT =================
 @socketio.on("connect")
-def handle_connect():
+def handle_connect(auth):
+
     print("Client connected")
+
+    global current_player_id
+
+    if not current_player_id:
+        return
+
+    db, cursor = get_cursor()
+
+    try:
+        cursor.execute("SELECT * FROM players WHERE id=%s", (current_player_id,))
+        player = cursor.fetchone()
+    finally:
+        cursor.close()
+        db.close()
+
+    if player:
+        safe_player = make_json_safe(player)
+        socketio.emit("player_update", safe_player)
 
 # ================= RUN =================
 if __name__ == "__main__":
