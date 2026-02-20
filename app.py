@@ -26,7 +26,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev_key")
 
 socketio = SocketIO(
     app,
-    cors_allowed_origins="*",
+    cors_allowed_origins=os.environ.get("SOCKET_CORS"),
     async_mode="gevent",
     message_queue=os.environ.get("REDIS_URL"),
     ping_timeout=20,
