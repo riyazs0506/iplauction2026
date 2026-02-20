@@ -36,25 +36,6 @@ body{
     font-size:42px;
     animation:blink 1.5s infinite;
 }
-/* FOOTER */
-.footer{
-    position:fixed;
-    bottom:50px; /* Above ticker */
-    width:100%;
-    background:linear-gradient(90deg,#000,#111,#000);
-    text-align:center;
-    padding:10px;
-    font-size:14px;
-    color:#ccc;
-    letter-spacing:1px;
-    border-top:1px solid #333;
-    z-index:10;
-}
-
-.footer span{
-    color:#FFD700;
-    font-weight:bold;
-}
 
 @keyframes blink{
     0%{opacity:0.4;}
@@ -212,10 +193,8 @@ body{
 </head>
 
 <body>
-
 <div class="header-bar">
-🏏 IPL 2026 LIVE AUCTION | Kongu Engineering College
-</div>
+🏏  2026 IPL AUCTION | © MOHAMMED RIYAZ</div>
 
 <div id="waitingScreen" class="waiting-screen">
     Waiting For Auction...
@@ -253,9 +232,7 @@ body{
     </div>
 </div>
 
-<div class="footer">
-    © 2026 IPL Auction | <span>Mohammed Riyaz S</span> 
-</div>
+
 <script>
 
 var socket = io();
